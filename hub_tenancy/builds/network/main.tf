@@ -2,8 +2,14 @@ data "hcp_vault_secrets_app" "network_secrets"{
     app_name = "oracle-tenancy-secrets"
 }
 
+data "oci_core_instances" "libreswan" {
+    compartment_id = data.hcp_vault_secrets_app.network_secrets.secrets["spoke_main_compartment_id"]
+    display_name = "libreswan"
+}
+
 data "oci_core_vnic_attachments" "libreswan_attachment" {
     compartment_id = data.hcp_vault_secrets_app.network_secrets.secrets["spoke_main_compartment_id"]
+    instance_id = oci_core_instance.libreswan.id
 }
 
 data "oci_core_vnic" "libreswan_vnic" {
@@ -90,7 +96,7 @@ resource "oci_core_cpe" "spoke_cpe" {
     count = local.spoke_cpe_check
 
     compartment_id = data.hcp_vault_secrets_app.network_secrets.secrets["main_compartment_id"]
-    ip_address = data.oci_core_instances.spoke_libreswan_instance ? "value" : "value2"
+    ip_address = data.oci_core_vnic.libreswan_vnic.private_ip_address ? "value" : "value2"
     display_name = "spoke-cpe"
 }
 

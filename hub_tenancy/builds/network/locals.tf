@@ -10,4 +10,6 @@ priv_subnets = [
     }
 ]
 
+spoke_cpe_check = data.oci_core_instances.libreswan != null || length(data.oci_core_instances.libreswan) > 0 ? data.oci_core_instances.libreswan : null
+
 }
