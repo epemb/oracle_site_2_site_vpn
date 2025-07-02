@@ -35,7 +35,7 @@ module "pub_subnets" {
 resource "oci_core_route_table" "pub_subnet_rt" {
     compartment_id = data.hcp_vault_secrets_app.network_secrets.secrets["spoke_main_compartment_id"]
     vcn_id = module.vcn.vcn_id
-    display_name = "Default Route Table for pub-subnet"
+    display_name = "spoke-pub-rt"
 
     route_rules {
         network_entity_id = module.igw.id["spoke-igw"]

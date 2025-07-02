@@ -26,7 +26,7 @@ module "drg_attachment" {
 source = "../../drg_attachment"
     drg_attachment_info = [{
         drg_id = oci_core_drg.hub_drg.id
-        display_name = "priv-drg-attachment"
+        display_name = "hub-drg-attachment"
         drg_route_table_id = oci_core_drg_route_table.priv_drg_rt.id
         id = module.vcn.vcn_id
         type = "VCN"
@@ -34,9 +34,16 @@ source = "../../drg_attachment"
     }]
 }
 
+# Calls the IPSEC DRG Attachment to be referenced in modules/resources.
+resource "oci_core_drg_attachments_list" "test_drg_attachments_list" {
+    drg_id = oci_core_drg.hub_drg
+    attachment_type = "IPSEC_TUNNEL"
+}
+
+
 resource "oci_core_drg_route_table" "priv_drg_rt" {
     drg_id = oci_core_drg.test_drg.id
-    display_name = "priv-drg-rt"
+    display_name = "hub-drg-rt"
     import_drg_route_distribution_id = oci_core_drg_route_distribution.priv_rd.id
     is_ecmp_enabled = false
 }
@@ -44,11 +51,11 @@ resource "oci_core_drg_route_table" "priv_drg_rt" {
 resource "oci_core_drg_route_distribution" "priv_rd" {
     distribution_type = "IMPORT"
     drg_id = oci_core_drg.hub_drg.id
-    display_name = "priv-import-rd"
+    display_name = "hub-import-rd"
 }
 
 resource "oci_core_drg_route_distribution_statement" "priv_rd_statements" {
-    drg_route_distribution_id = oci_core_drg_route_distribution.priv_import_rd.id
+    drg_route_distribution_id = oci_core_drg_route_distribution.priv_rd.id
     action = "ACCEPT"
     
     match_criteria {
@@ -67,7 +74,7 @@ module "vcn" {
         {
         compartment_id  = data.hcp_vault_secrets_app.network_secrets.secrets["main_compartment_id"]
         cidr_block      = var.vcn_cidr_block
-        display_name    = "spoke-vcn-ashburn"
+        display_name    = "hub-vcn-ashburn"
     }
     ]
 }
@@ -81,11 +88,11 @@ module "priv_subnets" {
 resource "oci_core_route_table" "priv_subnet_rt" {
     compartment_id = data.hcp_vault_secrets_app.network_secrets.secrets["main_compartment_id"]
     vcn_id = module.vcn.vcn_id
-    display_name = "Default Route Table for pub-subnet"
+    display_name = "hub-priv-rt"
 
     route_rules {
-        network_entity_id = module.igw.id["spoke-igw"]
-        description = "Forwards packets in pub subnet to IGW."
+        network_entity_id = module.drg_attachment.id["hub-drg-attachment"]
+        description = "Forwards packets from priv subnet to DRG attachment."
         destination = "0.0.0.0/0"
         destination_type = "CIDR_BLOCK"
     }
@@ -96,7 +103,7 @@ resource "oci_core_cpe" "spoke_cpe" {
     count = local.spoke_cpe_check
 
     compartment_id = data.hcp_vault_secrets_app.network_secrets.secrets["main_compartment_id"]
-    ip_address = data.oci_core_vnic.libreswan_vnic.private_ip_address ? "value" : "value2"
+    ip_address = data.oci_core_vnic.libreswan_vnic.public_ip_address ? "value" : "value2"
     display_name = "spoke-cpe"
 }
 
@@ -121,7 +128,7 @@ resource "oci_core_ipsec_connection_tunnel_management" "hub_ipsec_tunnel_mgmt" {
     ike_version = "V2"
 
     bgp_session_info {
-        customer_bgp_asn = var.ip_sec_connection_tunnel_management_bgp_session_info_customer_bgp_asn
+        customer_bgp_asn = "1001"
         customer_interface_ip = var.ip_sec_connection_tunnel_management_bgp_session_info_customer_interface_ip
         oracle_interface_ip = var.ip_sec_connection_tunnel_management_bgp_session_info_oracle_interface_ip
     }
